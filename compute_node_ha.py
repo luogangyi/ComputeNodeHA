@@ -12,7 +12,9 @@ from novaclient.openstack.common.gettextutils import _
 from oslo.config import cfg
 from eventlet import greenpool
 from eventlet import greenthread
+from datetime import datetime
 from utils import ssh
+
 
 # os_auth_url = 'http://192.168.36.72:5000/v2.0'
 # os_tenant_name = 'admin'
@@ -76,6 +78,7 @@ class ComputeNodeHA(object):
     """
 
     restart_nova_cmd = "service openstack-nova-compute restart"
+    COOL_TIME = 60
 
     def __init__(self):
         """Initialize a nova client object."""
@@ -88,7 +91,8 @@ class ComputeNodeHA(object):
             auth_url=conf.os_auth_url,
             no_cache=True)
 
-        self.pool = greenpool.GreenPool(1000)
+        self.update_time_map = {}
+
 
     def _search_dead_host(self):
         """search host whose Status is enabled and State is down"""
@@ -97,7 +101,7 @@ class ComputeNodeHA(object):
         hosts = self.nova_client.services.list()
         for host in hosts:
             if host.status == 'enabled' and \
-                host.state == 'up' and \
+                host.state == 'down' and \
                 host.binary == 'nova-compute':
 
                 dead_host.append(host.host)
@@ -161,7 +165,24 @@ class ComputeNodeHA(object):
 
         return False
 
+    def _in_cooling(self, deadhost):
+        if not self.update_time_map.has_key(deadhost):
+            self.update_time_map[deadhost] = datetime.now()
+            return False
+        previous_time = self.update_time_map.get(deadhost)
+        delta_time = (datetime.now()-previous_time).seconds
+        if delta_time > self.COOL_TIME:
+            self.update_time_map[deadhost] = datetime.now()
+            return False
+        else:
+            print deadhost + " is in cooling!"
+            return True
+
     def _handle_deadhost(self, deadhost):
+
+        if self._in_cooling(deadhost):
+            return
+
         self._restart_service(deadhost)
         greenthread.sleep(10)
         if not self._recheck_status(deadhost):
@@ -176,7 +197,7 @@ class ComputeNodeHA(object):
             for dead_host in dead_hosts:
                 greenthread.spawn_n(self._handle_deadhost, dead_host)
 
-            greenthread.sleep(60)
+            greenthread.sleep(20)
             #self._handle_deadhost(dead_host)
 
 

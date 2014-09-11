@@ -33,11 +33,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="compute_node_ha.py" pinned="false" current="false" current-in-tab="false">
+      <file leaf-file-name="compute_node_ha.py" pinned="false" current="true" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/compute_node_ha.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0" vertical-offset="3042" max-vertical-offset="3492">
-              <caret line="179" column="45" selection-start-line="179" selection-start-column="45" selection-end-line="179" selection-end-column="45" />
+            <state vertical-scroll-proportion="-3.48" vertical-offset="3420" max-vertical-offset="3870">
+              <caret line="103" column="35" selection-start-line="103" selection-start-column="35" selection-end-line="103" selection-end-column="35" />
               <folding>
                 <element signature="e#73#82#0" expanded="true" />
               </folding>
@@ -45,10 +45,10 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name=".gitignore" pinned="false" current="true" current-in-tab="true">
+      <file leaf-file-name=".gitignore" pinned="false" current="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/.gitignore">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="425">
+            <state vertical-scroll-proportion="-0.0" vertical-offset="0" max-vertical-offset="108">
               <caret line="0" column="5" selection-start-line="0" selection-start-column="5" selection-end-line="0" selection-end-column="5" />
               <folding />
             </state>
@@ -141,8 +141,8 @@
         <option value="$PROJECT_DIR$/ComputeNodeHA.py" />
         <option value="$PROJECT_DIR$/utils/__init__.py" />
         <option value="$PROJECT_DIR$/utils/ssh.py" />
-        <option value="$PROJECT_DIR$/compute_node_ha.py" />
         <option value="$PROJECT_DIR$/.gitignore" />
+        <option value="$PROJECT_DIR$/compute_node_ha.py" />
       </list>
     </option>
   </component>
@@ -673,21 +673,21 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/compute_node_ha.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="3042" max-vertical-offset="3492">
-          <caret line="179" column="45" selection-start-line="179" selection-start-column="45" selection-end-line="179" selection-end-column="45" />
-          <folding>
-            <element signature="e#73#82#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/.gitignore">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="425">
           <caret line="0" column="5" selection-start-line="0" selection-start-column="5" selection-end-line="0" selection-end-column="5" />
           <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/compute_node_ha.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-3.48" vertical-offset="3420" max-vertical-offset="3870">
+          <caret line="103" column="35" selection-start-line="103" selection-start-column="35" selection-end-line="103" selection-end-column="35" />
+          <folding>
+            <element signature="e#73#82#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
