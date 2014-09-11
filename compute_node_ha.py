@@ -3,14 +3,16 @@
 # Author: Luo Gangyi <luogangyi_sz@139.com>
 
 import os
-
+import time
 from novaclient.v1_1 import client
 from novaclient import utils
 from novaclient import base
 from novaclient.openstack.common.gettextutils import _
 
 from oslo.config import cfg
-
+from eventlet import greenpool
+from eventlet import greenthread
+from utils import ssh
 
 # os_auth_url = 'http://192.168.36.72:5000/v2.0'
 # os_tenant_name = 'admin'
@@ -57,6 +59,7 @@ CLI_OPTIONS = [
                 help='Disables X.509 certificate validation when an '
                      'SSL connection to Identity Service is established.'),
 ]
+
 cfg.CONF.register_cli_opts(CLI_OPTIONS, group="service_credentials")
 cfg.CONF(default_config_files='ceilometer.conf')
 
@@ -72,6 +75,8 @@ class ComputeNodeHA(object):
     all the virtual machines on this node would be migrated to other available node.
     """
 
+    restart_nova_cmd = "service openstack-nova-compute restart"
+
     def __init__(self):
         """Initialize a nova client object."""
         conf = cfg.CONF.service_credentials
@@ -83,6 +88,8 @@ class ComputeNodeHA(object):
             auth_url=conf.os_auth_url,
             no_cache=True)
 
+        self.pool = greenpool.GreenPool(1000)
+
     def _search_dead_host(self):
         """search host whose Status is enabled and State is down"""
 
@@ -93,20 +100,18 @@ class ComputeNodeHA(object):
                 host.state == 'up' and \
                 host.binary == 'nova-compute':
 
-                host_name = host.host
-                if '@' in host_name:
-                    host_name = host_name.split('@')[1]
-
-                dead_host.append(host_name)
-                print "Compute service on "+host_name+" is down," \
+                dead_host.append(host.host)
+                print "Compute service on "+host.host+" is down," \
                       "try to migrate all virtual machines on this host!"
 
         return dead_host
 
     def _host_evacuate(self, source_host, target_host=None, on_shared_storage=True):
         """Evacuate all instances from failed host."""
-
-        hypervisors = self.nova_client.hypervisors.search(source_host, servers=True)
+        host_name = source_host
+        if '@' in source_host:
+            host_name = source_host.split('@')[1]
+        hypervisors = self.nova_client.hypervisors.search(host_name, servers=True)
         response = []
         for hyper in hypervisors:
             if hasattr(hyper, 'servers'):
@@ -132,12 +137,47 @@ class ComputeNodeHA(object):
                                     "evacuate_accepted": success,
                                     "error_message": error_message})
 
+
+    def _restart_service(self, deadhost):
+        '''try to restart compute service first'''
+
+        #deal with name like 'region!child@server-36-72'
+        host_name = deadhost
+        if '@' in deadhost:
+            host_name = host_name.split('@')[1]
+
+        ssh_client = ssh.SshClient(host_name, 22, "root", "123456")
+        ssh_client.exec_cmd(self.restart_nova_cmd)
+
+    def _recheck_status(self, deadhost):
+        '''if service is enabled now, return true'''
+        hosts = self.nova_client.services.list(host=deadhost)
+        for host in hosts:
+            print host.host, host.status, host.state, host.binary
+            if host.binary == 'nova-compute':
+                if host.status == 'enabled' and \
+                        host.state == 'up':
+                    return True
+
+        return False
+
+    def _handle_deadhost(self, deadhost):
+        self._restart_service(deadhost)
+        greenthread.sleep(10)
+        if not self._recheck_status(deadhost):
+             self._host_evacuate(deadhost)
+
+
     def start(self):
 
-        dead_hosts = self._search_dead_host()
+        while True:
+            dead_hosts = self._search_dead_host()
 
-        for dead_host in dead_hosts:
-            self._host_evacuate(dead_host)
+            for dead_host in dead_hosts:
+                greenthread.spawn_n(self._handle_deadhost, dead_host)
+
+            greenthread.sleep(60)
+            #self._handle_deadhost(dead_host)
 
 
 def main():
@@ -146,4 +186,4 @@ def main():
     pass
 
 if __name__ == '__main__':
-    main()
+    greenthread.spawn_n(main())
