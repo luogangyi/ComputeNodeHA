@@ -14,7 +14,10 @@ from eventlet import greenpool
 from eventlet import greenthread
 from datetime import datetime
 from utils import ssh
-
+from oslo.utils import encodeutils
+import six
+import uuid
+from novaclient import exceptions
 
 # os_auth_url = 'http://192.168.36.72:5000/v2.0'
 # os_tenant_name = 'admin'
@@ -190,22 +193,88 @@ class ComputeNodeHA(object):
              self._host_evacuate(deadhost)
 
 
-    def start(self):
+    def show_vm_detail(self):
 
-        while True:
-            dead_hosts = self._search_dead_host()
+        hypervisors = self.nova_client.hypervisors.search('compute-58-07.local', servers=True)
+        for hyper in hypervisors:
+            if hasattr(hyper, 'servers'):
+                for server in hyper.servers:
+                    try:
+                        tmp_id = encodeutils.safe_encode(server['uuid'])
 
-            for dead_host in dead_hosts:
-                greenthread.spawn_n(self._handle_deadhost, dead_host)
+                        if six.PY3:
+                            tmp_id = tmp_id.decode()
 
-            greenthread.sleep(1)
-            #self._handle_deadhost(dead_host)
+                        uuid.UUID(tmp_id)
+                        print tmp_id
+                        vm = self.nova_client.servers.get(tmp_id)
+                        if vm != None:
+                            print vm.flavor['id']
+                            flavor = self.nova_client.flavors.get(vm.flavor['id'])
+                            print flavor.ram,flavor.vcpus
+                    except (TypeError, ValueError, exceptions.NotFound):
+                        pass
+
+    def show_hosts(self):
+        hosts =  self.nova_client.hosts.list()
+        for host in hosts:
+            print host.host_name
+            if host.service != 'compute' :
+                continue
+            self.show_host_detail(host.host_name)
+
+
+    def show_service_list(self):
+        hosts = self.nova_client.services.list()
+        for host in hosts:
+            if host.status == 'enabled' and \
+                host.state == 'up' and \
+                host.binary == 'nova-compute':
+                print host.host
+                self.show_host_detail(host.host)
+
+
+    def show_host_detail(self,name):
+        '''
+        Right form should be looked like below:
+
+        +---------------------+------------+-----+-----------+---------+
+        | HOST                | PROJECT    | cpu | memory_mb | disk_gb |
+        +---------------------+------------+-----+-----------+---------+
+        | compute-58-09.local | (total)    | 4   | 7857      | 679     |
+        | compute-58-09.local | (used_now) | 0   | 512       | 0       |
+        | compute-58-09.local | (used_max) | 0   | 0         | 0       |
+        +---------------------+------------+-----+-----------+---------+
+
+        or
+        +---------------------+----------------------------------+-----+-----------+---------+
+        | HOST                | PROJECT                          | cpu | memory_mb | disk_gb |
+        +---------------------+----------------------------------+-----+-----------+---------+
+        | compute-58-08.local | (total)                          | 4   | 7857      | 679     |
+        | compute-58-08.local | (used_now)                       | 1   | 1024      | 1       |
+        | compute-58-08.local | (used_max)                       | 1   | 512       | 1       |
+        | compute-58-08.local | 8823bd06853f41b799a4b2a310f74aef | 1   | 512       | 1       |
+        +---------------------+----------------------------------+-----+-----------+---------+
+
+
+        '''
+
+        host = self.nova_client.hosts.get(name)
+        if len(host) < 3:
+            print "Error Host Status"
+            return
+        for host_inner in host:
+            print host_inner.cpu,host_inner.memory_mb
+
+
 
 
 def main():
     cha = ComputeNodeHA()
-    cha.start()
+    cha.show_vm_detail()
+    #cha.show_hosts()
+    cha.show_service_list()
     pass
 
 if __name__ == '__main__':
-    greenthread.spawn_n(main())
+    main()
