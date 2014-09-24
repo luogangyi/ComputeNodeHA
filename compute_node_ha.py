@@ -64,6 +64,11 @@ CLI_OPTIONS = [
                 default=False,
                 help='Disables X.509 certificate validation when an '
                      'SSL connection to Identity Service is established.'),
+    cfg.StrOpt('restart_nova_cmd',
+               deprecated_group="DEFAULT",
+               default='service openstack-nova-compute restart',
+               help='Type of endpoint in Identity service catalog to use for '
+                    'communication with OpenStack services.'),
 ]
 
 cfg.CONF.register_cli_opts(CLI_OPTIONS, group="service_credentials")
@@ -95,8 +100,8 @@ class ComputeNodeHA(object):
             auth_url=conf.os_auth_url,
             no_cache=True)
 
+        self.restart_nova_cmd = conf.restart_nova_cmd
         self.update_time_map = {}
-
         self.scheduler = scheduler.RandomScheduler()
 
 
