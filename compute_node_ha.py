@@ -67,7 +67,7 @@ CLI_OPTIONS = [
 ]
 
 cfg.CONF.register_cli_opts(CLI_OPTIONS, group="service_credentials")
-cfg.CONF(default_config_files='ceilometer.conf')
+cfg.CONF(default_config_files='computeNodeHA.conf')
 
 
 class EvacuateHostResponse(base.Resource):
