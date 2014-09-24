@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Author: Luo Gangyi <luogangyi_sz@139.com>
+# Author: Luo Gangyi <luogangyi@chinamobile.com>
 
 import os
 import time
@@ -13,8 +13,12 @@ from oslo.config import cfg
 from eventlet import greenpool
 from eventlet import greenthread
 from datetime import datetime
+from oslo.utils import encodeutils
+import six
+import uuid
+from novaclient import exceptions
 from utils import ssh
-
+import scheduler
 
 # os_auth_url = 'http://192.168.36.72:5000/v2.0'
 # os_tenant_name = 'admin'
@@ -93,6 +97,8 @@ class ComputeNodeHA(object):
 
         self.update_time_map = {}
 
+        self.scheduler = scheduler.RandomScheduler()
+
 
     def _search_dead_host(self):
         """search host whose Status is enabled and State is down"""
@@ -106,7 +112,7 @@ class ComputeNodeHA(object):
 
                 dead_host.append(host.host)
                 print "Compute service on "+host.host+" is down," \
-                      "try to migrate all virtual machines on this host!"
+                      "try to rebuild all virtual machines on this host!"
 
         return dead_host
 
@@ -120,9 +126,33 @@ class ComputeNodeHA(object):
         for hyper in hypervisors:
             if hasattr(hyper, 'servers'):
                 for server in hyper.servers:
-                    print "Migrating virtual machine "+server['uuid']+" ..."
-                    success,responseMsg = self._server_evacuate(server, target_host, on_shared_storage)
-                    response.append(self._server_evacuate(server, target_host, on_shared_storage))
+                    vm = None
+                    try:
+                        tmp_id = encodeutils.safe_encode(server['uuid'])
+
+                        if six.PY3:
+                            tmp_id = tmp_id.decode()
+
+                        uuid.UUID(tmp_id)
+                        print tmp_id
+                        vm = self.nova_client.servers.get(tmp_id)
+
+                    except (TypeError, ValueError, exceptions.NotFound):
+                        pass
+
+                    if vm is None:
+                        print "Can't find instance:%s" % server['uuid']
+                        continue
+
+                    target_host = self.scheduler.find_host(vm)
+
+                    if target_host is None:
+                        print "Can't find suitable host for instance: %s" % server['uuid']
+                        continue
+
+                    print "Rebulid instance %s on host %s " % (server['uuid'], target_host['host_name'])
+                    success, responseMsg = self._server_evacuate(server, target_host['host_name'], on_shared_storage)
+                    response.append(responseMsg)
 
         utils.print_list(response,
                          ["Server UUID", "Evacuate Accepted", "Error Message"])
@@ -176,7 +206,7 @@ class ComputeNodeHA(object):
             self.update_time_map[deadhost] = datetime.now()
             return False
         else:
-            print deadhost + " is in cooling!"
+            # print deadhost + " is in cooling!"
             return True
 
     def _handle_deadhost(self, deadhost):
@@ -199,7 +229,6 @@ class ComputeNodeHA(object):
                 greenthread.spawn_n(self._handle_deadhost, dead_host)
 
             greenthread.sleep(1)
-            #self._handle_deadhost(dead_host)
 
 
 def main():
