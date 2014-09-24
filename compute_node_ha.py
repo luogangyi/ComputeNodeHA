@@ -67,8 +67,15 @@ CLI_OPTIONS = [
     cfg.StrOpt('restart_nova_cmd',
                deprecated_group="DEFAULT",
                default='service openstack-nova-compute restart',
-               help='Type of endpoint in Identity service catalog to use for '
-                    'communication with OpenStack services.'),
+               help='Command to restart nova compute service in ssh.'),
+    cfg.StrOpt('ssh_user_name',
+               deprecated_group="DEFAULT",
+               default='admin',
+               help='ssh user name.'),
+    cfg.StrOpt('ssh_user_password',
+               deprecated_group="DEFAULT",
+               default='123456',
+               help='ssh user password.'),
 ]
 
 cfg.CONF.register_cli_opts(CLI_OPTIONS, group="service_credentials")
@@ -88,6 +95,8 @@ class ComputeNodeHA(object):
 
     restart_nova_cmd = "service openstack-nova-compute restart"
     COOL_TIME = 60
+    SSH_USER_NAME = ''
+    SSH_USER_PASSWORD = ''
 
     def __init__(self):
         """Initialize a nova client object."""
@@ -101,6 +110,8 @@ class ComputeNodeHA(object):
             no_cache=True)
 
         self.restart_nova_cmd = conf.restart_nova_cmd
+        self.SSH_USER_NAME = conf.ssh_user_name
+        self.SSH_USER_PASSWORD = conf.ssh_user_password
         self.update_time_map = {}
         self.scheduler = scheduler.RandomScheduler()
 
@@ -139,7 +150,6 @@ class ComputeNodeHA(object):
                             tmp_id = tmp_id.decode()
 
                         uuid.UUID(tmp_id)
-                        print tmp_id
                         vm = self.nova_client.servers.get(tmp_id)
 
                     except (TypeError, ValueError, exceptions.NotFound):
@@ -189,7 +199,7 @@ class ComputeNodeHA(object):
         if '@' in deadhost:
             host_name = host_name.split('@')[1]
 
-        ssh_client = ssh.SshClient(host_name, 22, "admin", "123456")
+        ssh_client = ssh.SshClient(host_name, 22, self.SSH_USER_NAME, self.SSH_USER_PASSWORD)
         ssh_client.exec_cmd(self.restart_nova_cmd)
 
     def _recheck_status(self, deadhost):
@@ -213,7 +223,7 @@ class ComputeNodeHA(object):
             self.update_time_map[deadhost] = datetime.now()
             return False
         else:
-            print deadhost + " is in cooling!"
+            print deadhost + " is in cooling! Previous operation is running."
             return True
 
     def _disable_deadhost(self, deadhost):
