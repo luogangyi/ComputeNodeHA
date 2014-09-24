@@ -152,6 +152,9 @@ class ComputeNodeHA(object):
 
                     print "Rebulid instance %s on host %s " % (server['uuid'], target_host['host_name'])
                     success, responseMsg = self._server_evacuate(server, target_host['host_name'], on_shared_storage)
+
+                    greenthread.sleep(2)
+
                     response.append(responseMsg)
 
         utils.print_list(response,
@@ -188,7 +191,6 @@ class ComputeNodeHA(object):
         '''if service is enabled now, return true'''
         hosts = self.nova_client.services.list(host=deadhost)
         for host in hosts:
-            print host.host, host.status, host.state, host.binary
             if host.binary == 'nova-compute':
                 if host.status == 'enabled' and \
                         host.state == 'up':
@@ -206,8 +208,11 @@ class ComputeNodeHA(object):
             self.update_time_map[deadhost] = datetime.now()
             return False
         else:
-            # print deadhost + " is in cooling!"
+            print deadhost + " is in cooling!"
             return True
+
+    def _disable_deadhost(self, deadhost):
+        self.nova_client.services.disable(deadhost, 'nova-compute')
 
     def _handle_deadhost(self, deadhost):
 
@@ -217,7 +222,9 @@ class ComputeNodeHA(object):
         self._restart_service(deadhost)
         greenthread.sleep(10)
         if not self._recheck_status(deadhost):
-             self._host_evacuate(deadhost)
+            self._host_evacuate(deadhost)
+            greenthread.sleep(2)
+            self._disable_deadhost(deadhost)
 
 
     def start(self):
@@ -228,7 +235,7 @@ class ComputeNodeHA(object):
             for dead_host in dead_hosts:
                 greenthread.spawn_n(self._handle_deadhost, dead_host)
 
-            greenthread.sleep(1)
+            greenthread.sleep(5)
 
 
 def main():
