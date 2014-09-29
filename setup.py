@@ -13,5 +13,6 @@ setup(
       license="Apache",
       packages= ['ComputeNodeHA','ComputeNodeHA.utils'],
       scripts=["bin/compute-node-ha"],
-      data_files=[('/etc/ComputeNodeHA', ['computeNodeHA.conf']),]
+      data_files=[('/etc/ComputeNodeHA', ['computeNodeHA.conf']),
+                  ('/etc/init.d', ['init-script/ComputeNodeHA'])]
       )

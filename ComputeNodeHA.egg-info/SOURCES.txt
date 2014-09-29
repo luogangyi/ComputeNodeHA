@@ -3,7 +3,7 @@ README.md
 computeNodeHA.conf
 setup.py
 .idea/.name
-.idea/HATest.iml
+.idea/ComputeNodeHA.iml
 .idea/encodings.xml
 .idea/misc.xml
 .idea/modules.xml
@@ -21,3 +21,5 @@ ComputeNodeHA.egg-info/top_level.txt
 ComputeNodeHA/utils/__init__.py
 ComputeNodeHA/utils/ssh.py
 bin/compute-node-ha
+dist/ComputeNodeHA-0.10-py2.6.egg
+init-script/ComputeNodeHA
