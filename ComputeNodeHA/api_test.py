@@ -66,7 +66,7 @@ CLI_OPTIONS = [
 ]
 
 cfg.CONF.register_cli_opts(CLI_OPTIONS, group="service_credentials")
-cfg.CONF(default_config_files='ceilometer.conf')
+cfg.CONF(default_config_files=['/etc/ComputeNodeHA/computeNodeHA.conf'])
 
 
 class EvacuateHostResponse(base.Resource):
@@ -195,7 +195,7 @@ class ComputeNodeHA(object):
 
     def show_vm_detail(self):
 
-        hypervisors = self.nova_client.hypervisors.search('compute-58-07.local', servers=True)
+        hypervisors = self.nova_client.hypervisors.search('compute-58-11.local', servers=True)
         for hyper in hypervisors:
             if hasattr(hyper, 'servers'):
                 for server in hyper.servers:
@@ -210,10 +210,41 @@ class ComputeNodeHA(object):
                         vm = self.nova_client.servers.get(tmp_id)
                         if vm != None:
                             print vm.flavor['id']
+                            self._is_boot_from_volume(vm)
                             flavor = self.nova_client.flavors.get(vm.flavor['id'])
                             print flavor.ram,flavor.vcpus
                     except (TypeError, ValueError, exceptions.NotFound):
                         pass
+
+    def _is_boot_from_volume(self, vm):
+        # Note(luogangyi): judge logic:
+        # if no image attached, it must be started with volume.
+        # if a image attached and the image has block device attributes,
+        # it must be started with volume.
+
+        image_info = vm.image
+
+        if not image_info:
+            print 'VM: '+vm.id+" has no image, boot from volume!"
+            return True
+        else:
+            print 'image id:' + image_info['id']
+            image = self.nova_client.images.get(image_info['id'])
+            bdms = image.metadata.get('block_device_mapping')
+            if bdms:
+                for bdm in bdms:
+                    if bdm.get('boot_index', -1) == 0:
+                        print 'VM: '+vm.id+" has a volume-backed image, boot from volume!"
+                        return True
+            else:
+                print 'VM: '+vm.id+" has a normal image or snapshot image, boot from local disk!"
+                return False
+
+    def _has_ephemeral_disk(self, vm):
+        flavor = self.nova_client.flavors.get(vm.flavor['id'])
+        if flavor.ephemeral>0:
+            print 'VM: '+vm.id+" has a ephemeral disk!"
+            return True
 
     def show_hosts(self):
         hosts =  self.nova_client.hosts.list()
