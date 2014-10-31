@@ -3,10 +3,15 @@
 # Author: Luo Gangyi <luogangyi@chinamobile.com>
 
 import paramiko
+from ComputeNodeHA.openstack.common import log
+
+LOG = log.getLogger('ComputeNodeHA')
+
 
 class SshClient:
+    """SSH client to connect compute node"""
 
-    def __init__(self, host,port=22,username=None, password=None):
+    def __init__(self, host, port=22, username=None, password=None):
         self.host = host
         self.port = port
         self.username = username
@@ -16,22 +21,23 @@ class SshClient:
         ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
-            print "Connecting to %s@%s:%d by using SSH" % (username, host, port)
+            LOG.info("Connecting to %s@%s:%d by using SSH",username, host, port)
             ssh_client.connect(self.host, self.port, self.username, self.password)
         except Exception as e:
-            print e
+            LOG.error(e)
 
     def exec_cmd(self, cmd):
         try:
             stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
-            print stdout.read()
-            print stderr.read()
+            LOG.info(stdout.read())
+            LOG.error(stderr.read())
+
         except Exception as e:
-            print('*** Caught exception: %s: %s' % (e.__class__, e))
+            LOG.error('*** Caught exception: %s: %s', e.__class__, e)
             try:
                 self.ssh_client.close()
-            except:
-                pass
+            except Exception as e:
+                LOG.error('*** Caught exception: %s: %s', e.__class__, e)
 
 def test():
     ssh_client = SshClient("192.168.36.72", 22, "root", "123456")

@@ -133,9 +133,6 @@ class ComputeNodeHA(object):
         self.update_time_map = {}
         self.scheduler = scheduler.RandomScheduler()
 
-        LOG.warn('test warn')
-        LOG.error('test error')
-
     def _search_dead_host(self):
         """search host whose Status is enabled and State is down"""
 
@@ -144,11 +141,11 @@ class ComputeNodeHA(object):
         for host in hosts:
             if host.status == 'enabled' and \
                 host.state == 'down' and \
-                host.binary == 'nova-compute':
+                    host.binary == 'nova-compute':
 
                 dead_host.append(host.host)
-                print "Compute service on "+host.host+" is down," \
-                      "try to rebuild all virtual machines on this host!"
+                LOG.info("Compute service on %s is down,"
+                         "try to rebuild all virtual machines on this host!", host.host)
 
         return dead_host
 
@@ -158,7 +155,6 @@ class ComputeNodeHA(object):
         if '@' in source_host:
             host_name = source_host.split('@')[1]
         hypervisors = self.nova_client.hypervisors.search(host_name, servers=True)
-        response = []
         for hyper in hypervisors:
             if hasattr(hyper, 'servers'):
                 for server in hyper.servers:
@@ -176,34 +172,32 @@ class ComputeNodeHA(object):
                         pass
 
                     if vm is None:
-                        print "Can't find instance:%s" % server['uuid']
+                        LOG.warn("Can't find instance:%s", server['uuid'])
                         continue
 
                     if not self._is_boot_from_volume(vm) and\
-                        self.allow_evacuate_local_vm == False:
-                        print 'VM '+vm.id+" is boot from local disk, not allowed to rebulid!"
+                            self.allow_evacuate_local_vm is False:
+                        LOG.warn('VM %s is boot from local disk, not allowed to rebulid!', vm.id)
                         continue
 
                     if self._has_ephemeral_disk(vm) and\
-                        self.allow_evacuate_vm_with_ephemeral_disk == False:
-                        print 'VM '+vm.id+" has ephemeral disk, not allowed to rebulid!"
+                            self.allow_evacuate_vm_with_ephemeral_disk is False:
+                        LOG.warn('VM %s has ephemeral disk, not allowed to rebulid!', vm.id)
                         continue
 
                     target_host = self.scheduler.find_host(vm)
 
                     if target_host is None:
-                        print "Can't find suitable host for instance: %s" % server['uuid']
+                        LOG.error("Can't find suitable host for instance: %s", server['uuid'])
                         continue
 
-                    print "Rebulid instance %s on host %s " % (server['uuid'], target_host['host_name'])
-                    success, responseMsg = self._server_evacuate(server, target_host['host_name'], on_shared_storage)
+                    LOG.info("Rebulid instance %s on host %s ", server['uuid'], target_host['host_name'])
 
+                    success, responseMsg = \
+                        self._server_evacuate(server, target_host['host_name'], on_shared_storage)
+                    LOG.info("Server %s; Evacuate Accepted: %s; Error Message %s",
+                             responseMsg[0],responseMsg[1], responseMsg[2])
                     greenthread.sleep(2)
-
-                    response.append(responseMsg)
-
-        utils.print_list(response,
-                         ["Server UUID", "Evacuate Accepted", "Error Message"])
 
 
     def _server_evacuate(self, server, target_host=None, on_shared_storage=False):
@@ -252,25 +246,26 @@ class ComputeNodeHA(object):
         image_info = vm.image
 
         if not image_info:
-            print 'VM: '+vm.id+" has no image, boot from volume!"
+            LOG.info("VM: %s has no image, boot from volume!", vm.id)
             return True
         else:
-            print 'image id:' + image_info['id']
             image = self.nova_client.images.get(image_info['id'])
             bdms = image.metadata.get('block_device_mapping')
             if bdms:
                 for bdm in bdms:
                     if bdm.get('boot_index', -1) == 0:
-                        print 'VM: '+vm.id+" has a volume-backed image, boot from volume!"
+                        LOG.info("VM: %s has a volume-backed image,"
+                                 " and was boot from volume!", vm.id)
                         return True
             else:
-                print 'VM: '+vm.id+" has a normal image or snapshot image, boot from local disk!"
+                LOG.info("VM: %s has a normal image or snapshot image, "
+                         "and was boot from local disk!", vm.id)
                 return False
 
     def _has_ephemeral_disk(self, vm):
         flavor = self.nova_client.flavors.get(vm.flavor['id'])
-        if flavor.ephemeral>0:
-            print 'VM: '+vm.id+" has a ephemeral disk!"
+        if flavor.ephemeral > 0:
+            LOG.info("VM: %s has a ephemeral disk!", vm.id)
             return True
 
     def _in_cooling(self, deadhost):
@@ -283,7 +278,7 @@ class ComputeNodeHA(object):
             self.update_time_map[deadhost] = datetime.now()
             return False
         else:
-            print deadhost + " is in cooling! Previous operation is running."
+            LOG.info("%s is in cooling! Previous operation is running.", deadhost)
             return True
 
     def _disable_deadhost(self, deadhost):

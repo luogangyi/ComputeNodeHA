@@ -155,7 +155,6 @@ class ComputeNodeHA(object):
         if '@' in source_host:
             host_name = source_host.split('@')[1]
         hypervisors = self.nova_client.hypervisors.search(host_name, servers=True)
-        response = []
         for hyper in hypervisors:
             if hasattr(hyper, 'servers'):
                 for server in hyper.servers:
@@ -194,12 +193,9 @@ class ComputeNodeHA(object):
 
                     LOG.info("Rebulid instance %s on host %s ", server['uuid'], target_host['host_name'])
 
-                    success, responseMsg = self._server_evacuate(server, target_host['host_name'], on_shared_storage)
-                    greenthread.sleep(2)
-                    response.append(responseMsg)
+                    success = self._server_evacuate(server, target_host['host_name'], on_shared_storage)
 
-        utils.print_list(response,
-                         ["Server UUID", "Evacuate Accepted", "Error Message"])
+                    greenthread.sleep(2)
 
 
     def _server_evacuate(self, server, target_host=None, on_shared_storage=False):
@@ -211,10 +207,10 @@ class ComputeNodeHA(object):
         except Exception as e:
             success = False
             error_message = _("Error while evacuating instance: %s") % e
-        return success, EvacuateHostResponse(base.Manager,
-                                    {"server_uuid": server['uuid'],
-                                    "evacuate_accepted": success,
-                                    "error_message": error_message})
+
+        LOG.info("Server %s; Evacuate Accepted: %s; Error Message %s",
+            server['uuid'], success, error_message)
+        return success
 
 
     def _restart_service(self, deadhost):
@@ -294,10 +290,11 @@ class ComputeNodeHA(object):
         self._restart_service(deadhost)
         greenthread.sleep(10)
         if not self._recheck_status(deadhost):
-            self._host_evacuate(deadhost)
+            try:
+                self._host_evacuate(deadhost)
+            finally:
+                self._disable_deadhost(deadhost)
             greenthread.sleep(2)
-            self._disable_deadhost(deadhost)
-
 
     def start(self):
 
