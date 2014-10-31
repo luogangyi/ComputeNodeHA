@@ -6,9 +6,13 @@
 from novaclient.v1_1 import client
 from oslo.config import cfg
 import random
+from ComputeNodeHA.openstack.common import log
+
+LOG = log.getLogger('ComputeNodeHA')
+
 
 class BaseScheduler(object):
-    '''Base Scheduler Class'''
+    """Base Scheduler Class"""
     all_hosts = []
 
     def __init__(self):
@@ -30,7 +34,7 @@ class BaseScheduler(object):
         for host in hosts:
             if host.status == 'enabled' and \
                 host.state == 'up' and \
-                host.binary == 'nova-compute':
+                    host.binary == 'nova-compute':
 
                 host_detail = self._get_host_detail(host.host)
 
@@ -39,7 +43,7 @@ class BaseScheduler(object):
         return self.all_hosts
 
     def _get_host_detail(self, host_name):
-        '''
+        """
         Get Host details from nova client and detail dict.
 
         Right original form should be looked like below:
@@ -63,11 +67,11 @@ class BaseScheduler(object):
         +---------------------+----------------------------------+-----+-----------+---------+
 
 
-        '''
+        """
 
         host = self.nova_client.hosts.get(host_name)
         if len(host) < 3:
-            print "Error Host Status"
+            LOG.error("Host %s: Error Host Status", host_name)
             return None
 
         cpu_left = host[0].cpu - host[1].cpu
@@ -75,22 +79,24 @@ class BaseScheduler(object):
         disk_left = host[0].disk_gb - host[1].disk_gb
 
         host_detail = dict(host_name=host_name, cpu_left=cpu_left, mem_left=mem_left, disk_left=disk_left)
-        print 'found host %(host_name)s: cpu_left %(cpu_left)d, ' \
-              'mem_left %(mem_left)d, disk_left %(disk_left)d' % host_detail
+        LOG.info('found host %(host_name)s: cpu_left %(cpu_left)d, '
+                 'mem_left %(mem_left)d, disk_left %(disk_left)d', host_detail)
+
         return host_detail
 
     def find_host(self, instance):
+        """Virtual method"""
         return None
 
 
 class FirstFitScheduler(BaseScheduler):
-    '''Using First-Fit Algorithm'''
+    """Using First-Fit Algorithm"""
 
     def find_host(self, instance):
-        '''
+        """
         :return host dict as
         dict(host_name=host_name, cpu_left=cpu_left, mem_left=mem_left, disk_left=disk_left)
-        '''
+        """
 
         flavor_id = instance.flavor['id']
         flavor = self.nova_client.flavors.get(flavor_id)
@@ -98,20 +104,20 @@ class FirstFitScheduler(BaseScheduler):
         available_hosts = self._get_all_available_hosts()
 
         for host in available_hosts:
-            if host['cpu_left']>flavor.vcpus and host['mem_left']>flavor.ram:
+            if host['cpu_left']>flavor.vcpus and host['mem_left'] > flavor.ram:
                 return host
         #if no host meet requirements
         return None
 
 
 class RandomScheduler(BaseScheduler):
-    '''Using First-Fit Algorithm'''
+    """Using First-Fit Algorithm"""
 
     def find_host(self, instance):
-        '''
+        """
         :return host dict as
         dict(host_name=host_name, cpu_left=cpu_left, mem_left=mem_left, disk_left=disk_left)
-        '''
+        """
 
         flavor_id = instance.flavor['id']
         flavor = self.nova_client.flavors.get(flavor_id)
@@ -120,7 +126,8 @@ class RandomScheduler(BaseScheduler):
         #shuffle the host list
         random.shuffle(available_hosts)
         for host in available_hosts:
-            if host['cpu_left']>flavor.vcpus and host['mem_left']>flavor.ram:
+            if host['cpu_left'] > flavor.vcpus and \
+                    host['mem_left'] > flavor.ram:
                 return host
         #if no host meet requirements
         return None

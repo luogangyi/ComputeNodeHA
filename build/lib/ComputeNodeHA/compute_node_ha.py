@@ -5,6 +5,7 @@
 import os
 from datetime import datetime
 import uuid
+import sys
 
 from novaclient.v1_1 import client
 from novaclient import utils
@@ -18,6 +19,8 @@ from novaclient import exceptions
 
 from ComputeNodeHA import scheduler
 from ComputeNodeHA.utils import ssh
+from ComputeNodeHA.openstack.common import log
+from ComputeNodeHA.openstack.common import gettextutils
 
 
 
@@ -25,7 +28,6 @@ from ComputeNodeHA.utils import ssh
 # os_tenant_name = 'admin'
 # os_password = '123456'
 # os_username = 'admin'
-
 
 CLI_OPTIONS = [
     cfg.StrOpt('os-username',
@@ -77,11 +79,23 @@ CLI_OPTIONS = [
                deprecated_group="DEFAULT",
                default='123456',
                help='ssh user password.'),
+    cfg.BoolOpt('allow_evacuate_local_vm',
+                default=False,
+                help='Allow automatic evacuate vm with local disk.'
+                     'Notice! This operation would destroy all user dada'
+                     'on local disk!!'),
+    cfg.BoolOpt('allow_evacuate_vm_with_ephemeral_disk',
+                default=True,
+                help='Allow automatic evacuate vm with ephemeral disk.'
+                     'Notice! This operation would destroy all user dada'
+                     'on ephemeral disk!!'),
 ]
 
 cfg.CONF.register_cli_opts(CLI_OPTIONS, group="service_credentials")
-cfg.CONF(default_config_files='computeNodeHA.conf')
+cfg.CONF(default_config_files=['/etc/ComputeNodeHA/computeNodeHA.conf'])
 
+
+LOG = log.getLogger('ComputeNodeHA')
 
 class EvacuateHostResponse(base.Resource):
     pass
@@ -113,9 +127,14 @@ class ComputeNodeHA(object):
         self.restart_nova_cmd = conf.restart_nova_cmd
         self.SSH_USER_NAME = conf.ssh_user_name
         self.SSH_USER_PASSWORD = conf.ssh_user_password
+        self.allow_evacuate_local_vm = conf.allow_evacuate_local_vm
+        self.allow_evacuate_vm_with_ephemeral_disk = \
+            conf.allow_evacuate_vm_with_ephemeral_disk
         self.update_time_map = {}
         self.scheduler = scheduler.RandomScheduler()
 
+        LOG.warn('test warn')
+        LOG.error('test error')
 
     def _search_dead_host(self):
         """search host whose Status is enabled and State is down"""
@@ -133,7 +152,7 @@ class ComputeNodeHA(object):
 
         return dead_host
 
-    def _host_evacuate(self, source_host, target_host=None, on_shared_storage=True):
+    def _host_evacuate(self, source_host, target_host=None, on_shared_storage=False):
         """Evacuate all instances from failed host."""
         host_name = source_host
         if '@' in source_host:
@@ -160,6 +179,16 @@ class ComputeNodeHA(object):
                         print "Can't find instance:%s" % server['uuid']
                         continue
 
+                    if not self._is_boot_from_volume(vm) and\
+                        self.allow_evacuate_local_vm == False:
+                        print 'VM '+vm.id+" is boot from local disk, not allowed to rebulid!"
+                        continue
+
+                    if self._has_ephemeral_disk(vm) and\
+                        self.allow_evacuate_vm_with_ephemeral_disk == False:
+                        print 'VM '+vm.id+" has ephemeral disk, not allowed to rebulid!"
+                        continue
+
                     target_host = self.scheduler.find_host(vm)
 
                     if target_host is None:
@@ -177,7 +206,7 @@ class ComputeNodeHA(object):
                          ["Server UUID", "Evacuate Accepted", "Error Message"])
 
 
-    def _server_evacuate(self, server, target_host=None, on_shared_storage=True):
+    def _server_evacuate(self, server, target_host=None, on_shared_storage=False):
         success = True
         error_message = ""
         try:
@@ -213,6 +242,36 @@ class ComputeNodeHA(object):
                     return True
 
         return False
+
+    def _is_boot_from_volume(self, vm):
+        # Note(luogangyi): judge logic:
+        # if no image attached, it must be started with volume.
+        # if a image attached and the image has block device attributes,
+        # it must be started with volume.
+
+        image_info = vm.image
+
+        if not image_info:
+            print 'VM: '+vm.id+" has no image, boot from volume!"
+            return True
+        else:
+            print 'image id:' + image_info['id']
+            image = self.nova_client.images.get(image_info['id'])
+            bdms = image.metadata.get('block_device_mapping')
+            if bdms:
+                for bdm in bdms:
+                    if bdm.get('boot_index', -1) == 0:
+                        print 'VM: '+vm.id+" has a volume-backed image, boot from volume!"
+                        return True
+            else:
+                print 'VM: '+vm.id+" has a normal image or snapshot image, boot from local disk!"
+                return False
+
+    def _has_ephemeral_disk(self, vm):
+        flavor = self.nova_client.flavors.get(vm.flavor['id'])
+        if flavor.ephemeral>0:
+            print 'VM: '+vm.id+" has a ephemeral disk!"
+            return True
 
     def _in_cooling(self, deadhost):
         if not self.update_time_map.has_key(deadhost):
@@ -260,4 +319,11 @@ def main():
     pass
 
 if __name__ == '__main__':
+    gettextutils.install('ComputeNodeHA', lazy=True)
+    gettextutils.enable_lazy()
+    log_levels = (cfg.CONF.default_log_levels +
+                  ['stevedore=INFO', 'keystoneclient=INFO'])
+    cfg.set_defaults(log.log_opts,
+                     default_log_levels=log_levels)
+    log.setup('ComputeNodeHA')
     greenthread.spawn_n(main())
