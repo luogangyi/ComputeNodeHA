@@ -225,6 +225,7 @@ class ComputeNodeHA(object):
 
         ssh_client = ssh.SshClient(host_name, 22, self.SSH_USER_NAME, self.SSH_USER_PASSWORD)
         ssh_client.exec_cmd(self.restart_nova_cmd)
+        ssh_client.close()
 
     def _recheck_status(self, deadhost):
         '''if service is enabled now, return true'''

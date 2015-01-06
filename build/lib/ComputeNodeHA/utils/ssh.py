@@ -17,12 +17,12 @@ class SshClient:
         self.username = username
         self.password = password
 
-        self.ssh_client = ssh_client = paramiko.SSHClient()
-        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.ssh_client = paramiko.SSHClient()
+        self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
             LOG.info("Connecting to %s@%s:%d by using SSH", username, host, port)
-            ssh_client.connect(self.host, self.port, self.username, self.password)
+            self.ssh_client.connect(self.host, self.port, self.username, self.password)
         except Exception as e:
             LOG.error(e)
 
@@ -39,9 +39,18 @@ class SshClient:
             except Exception as e:
                 LOG.error('*** Caught exception: %s: %s', e.__class__, e)
 
+    def close(self):
+        try:
+            LOG.info("Close SSH Connection.")
+            self.ssh_client.close()
+        except Exception as e:
+            LOG.error(e)
+
+
 def test():
     ssh_client = SshClient("192.168.36.72", 22, "root", "123456")
-    ssh_client.exec_cmd("service iptables restart")
+    ssh_client.exec_cmd("ls")
+    ssh_client.close()
 
 if __name__ == "__main__":
     test()
