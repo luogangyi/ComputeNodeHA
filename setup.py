@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
       name="ComputeNodeHA",
-      version="0.10",
+      version="0.10.1",
       description="Compute Node HA",
       author="Luo Gangyi",
       url="https://github.com/luogangyi/ComputeNodeHA",
