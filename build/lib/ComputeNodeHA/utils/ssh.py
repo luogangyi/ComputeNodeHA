@@ -21,7 +21,7 @@ class SshClient:
         ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
-            LOG.info("Connecting to %s@%s:%d by using SSH",username, host, port)
+            LOG.info("Connecting to %s@%s:%d by using SSH", username, host, port)
             ssh_client.connect(self.host, self.port, self.username, self.password)
         except Exception as e:
             LOG.error(e)

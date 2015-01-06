@@ -10,7 +10,7 @@ import sys
 from novaclient.v1_1 import client
 from novaclient import utils
 from novaclient import base
-from novaclient.openstack.common.gettextutils import _
+
 from oslo.config import cfg
 from eventlet import greenthread
 from oslo.utils import encodeutils
@@ -21,7 +21,7 @@ from ComputeNodeHA import scheduler
 from ComputeNodeHA.utils import ssh
 from ComputeNodeHA.openstack.common import log
 from ComputeNodeHA.openstack.common import gettextutils
-
+from ComputeNodeHA.openstack.common.gettextutils import _
 
 
 # os_auth_url = 'http://192.168.36.72:5000/v2.0'
