@@ -24,4 +24,9 @@ ComputeNodeHA/openstack/common/timeutils.py
 ComputeNodeHA/utils/__init__.py
 ComputeNodeHA/utils/ssh.py
 bin/compute-node-ha
+dist/ComputeNodeHA-0.10-py2.6.egg
+dist/ComputeNodeHA-0.10.1-1.noarch.rpm
+dist/ComputeNodeHA-0.10.1-1.src.rpm
+dist/ComputeNodeHA-0.10.1.linux-x86_64.tar.gz
+dist/ComputeNodeHA-0.10.1.tar.gz
 init-script/ComputeNodeHA

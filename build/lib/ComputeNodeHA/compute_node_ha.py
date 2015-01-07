@@ -297,14 +297,17 @@ class ComputeNodeHA(object):
             greenthread.sleep(2)
             self._disable_deadhost(deadhost)
 
-
     def start(self):
 
         while True:
-            dead_hosts = self._search_dead_host()
+            try:
+                dead_hosts = self._search_dead_host()
 
-            for dead_host in dead_hosts:
-                greenthread.spawn_n(self._handle_deadhost, dead_host)
+                for dead_host in dead_hosts:
+                    greenthread.spawn_n(self._handle_deadhost, dead_host)
+
+            except Exception as e:
+                LOG.error(e)
 
             greenthread.sleep(5)
 
