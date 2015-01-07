@@ -1,7 +1,9 @@
 .gitignore
 .gitignore~
+LICENSE
 README.md
 computeNodeHA.conf
+requirements.txt
 setup.py
 ComputeNodeHA/__init__.py
 ComputeNodeHA/api_test.py
@@ -19,8 +21,6 @@ ComputeNodeHA/openstack/common/jsonutils.py
 ComputeNodeHA/openstack/common/local.py
 ComputeNodeHA/openstack/common/log.py
 ComputeNodeHA/openstack/common/timeutils.py
-ComputeNodeHA/openstack/common/config/__init__.py
-ComputeNodeHA/openstack/common/config/generator.py
 ComputeNodeHA/utils/__init__.py
 ComputeNodeHA/utils/ssh.py
 bin/compute-node-ha

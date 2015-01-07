@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Author: Luo Gangyi <luogangyi_sz@139.com>
+# Author: Luo Gangyi <luogangyi@chinamobile.com>
 
 import os
 from datetime import datetime
@@ -9,7 +9,6 @@ import uuid
 from novaclient.v1_1 import client
 from novaclient import utils
 from novaclient import base
-from novaclient.openstack.common.gettextutils import _
 from oslo.config import cfg
 from eventlet import greenthread
 from oslo.utils import encodeutils
@@ -17,6 +16,7 @@ import six
 from novaclient import exceptions
 
 from ComputeNodeHA.utils import ssh
+from ComputeNodeHA.openstack.common.gettextutils import _
 
 
 # os_auth_url = 'http://192.168.36.72:5000/v2.0'

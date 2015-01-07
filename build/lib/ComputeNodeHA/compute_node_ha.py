@@ -8,7 +8,6 @@ import uuid
 import sys
 
 from novaclient.v1_1 import client
-from novaclient import utils
 from novaclient import base
 
 from oslo.config import cfg
@@ -96,6 +95,7 @@ cfg.CONF(default_config_files=['/etc/ComputeNodeHA/computeNodeHA.conf'])
 
 
 LOG = log.getLogger('ComputeNodeHA')
+
 
 class EvacuateHostResponse(base.Resource):
     pass
