@@ -1,7 +1,0 @@
-#!/usr/bin/env python
-from ComputeNodeHA import compute_node_ha
-from eventlet import greenthread
-
-
-if __name__ == '__main__':
-    greenthread.spawn_n(compute_node_ha.main())
