@@ -8,9 +8,8 @@ import uuid
 import sys
 
 from novaclient.v1_1 import client
-from novaclient import utils
 from novaclient import base
-from novaclient.openstack.common.gettextutils import _
+
 from oslo.config import cfg
 from eventlet import greenthread
 from oslo.utils import encodeutils
@@ -21,7 +20,7 @@ from ComputeNodeHA import scheduler
 from ComputeNodeHA.utils import ssh
 from ComputeNodeHA.openstack.common import log
 from ComputeNodeHA.openstack.common import gettextutils
-
+from ComputeNodeHA.openstack.common.gettextutils import _
 
 
 # os_auth_url = 'http://192.168.36.72:5000/v2.0'
@@ -96,6 +95,7 @@ cfg.CONF(default_config_files=['/etc/ComputeNodeHA/computeNodeHA.conf'])
 
 
 LOG = log.getLogger('ComputeNodeHA')
+
 
 class EvacuateHostResponse(base.Resource):
     pass
@@ -193,8 +193,10 @@ class ComputeNodeHA(object):
 
                     LOG.info("Rebulid instance %s on host %s ", server['uuid'], target_host['host_name'])
 
-                    success = self._server_evacuate(server, target_host['host_name'], on_shared_storage)
-
+                    success, responseMsg = \
+                        self._server_evacuate(server, target_host['host_name'], on_shared_storage)
+                    LOG.info("Server %s; Evacuate Accepted: %s; Error Message %s",
+                             responseMsg[0],responseMsg[1], responseMsg[2])
                     greenthread.sleep(2)
 
 
@@ -207,10 +209,10 @@ class ComputeNodeHA(object):
         except Exception as e:
             success = False
             error_message = _("Error while evacuating instance: %s") % e
-
-        LOG.info("Server %s; Evacuate Accepted: %s; Error Message %s",
-            server['uuid'], success, error_message)
-        return success
+        return success, EvacuateHostResponse(base.Manager,
+                                    {"server_uuid": server['uuid'],
+                                    "evacuate_accepted": success,
+                                    "error_message": error_message})
 
 
     def _restart_service(self, deadhost):
@@ -223,6 +225,7 @@ class ComputeNodeHA(object):
 
         ssh_client = ssh.SshClient(host_name, 22, self.SSH_USER_NAME, self.SSH_USER_PASSWORD)
         ssh_client.exec_cmd(self.restart_nova_cmd)
+        ssh_client.close()
 
     def _recheck_status(self, deadhost):
         '''if service is enabled now, return true'''
@@ -290,11 +293,10 @@ class ComputeNodeHA(object):
         self._restart_service(deadhost)
         greenthread.sleep(10)
         if not self._recheck_status(deadhost):
-            try:
-                self._host_evacuate(deadhost)
-            finally:
-                self._disable_deadhost(deadhost)
+            self._host_evacuate(deadhost)
             greenthread.sleep(2)
+            self._disable_deadhost(deadhost)
+
 
     def start(self):
 
